@@ -17,9 +17,10 @@ pipeline {
         BACKEND_WAR = 'springapp1.war'
         FRONTEND_WAR = 'frontapp1.war'
 
-        EC2_HOST = 'ec2-user@54.172.97.72'
-        SSH_KEY = '/path/to/fullstack-key.pem'   // 🔁 Change this
-        TOMCAT_WEBAPPS_DIR = '/opt/tomcat/webapps'
+        EC2_USER = 'ec2-user'
+        EC2_IP = '54.172.97.72'
+        PEM_PATH = '/home/jenkins/fullstack-key.pem'  // 🔁 Replace with correct path on Jenkins server
+        TOMCAT_WEBAPPS = '/opt/tomcat/webapps'        // 🔁 Update if your Tomcat path is different
     }
 
     stages {
@@ -63,24 +64,25 @@ pipeline {
             }
         }
 
-        stage('Clean Tomcat Webapps') {
+        stage('Undeploy Old Apps from Tomcat') {
             steps {
                 script {
                     sh """
-                        ssh -o StrictHostKeyChecking=no -i ${SSH_KEY} ${EC2_HOST} '
-                          sudo rm -rf ${TOMCAT_WEBAPPS_DIR}/springapp1.war ${TOMCAT_WEBAPPS_DIR}/springapp1
-                          sudo rm -rf ${TOMCAT_WEBAPPS_DIR}/frontapp1.war ${TOMCAT_WEBAPPS_DIR}/frontapp1
-                        '
+                        curl -s -u ${TOMCAT_USER}:${TOMCAT_PASS} "${TOMCAT_URL}/undeploy?path=/springapp1"
+                        curl -s -u ${TOMCAT_USER}:${TOMCAT_PASS} "${TOMCAT_URL}/undeploy?path=/frontapp1"
                     """
                 }
             }
         }
 
-        stage('Undeploy Old Backend (/springapp1)') {
+        stage('Clean Tomcat Webapps on EC2') {
             steps {
                 script {
                     sh """
-                        curl -s -u ${TOMCAT_USER}:${TOMCAT_PASS} "${TOMCAT_URL}/undeploy?path=/springapp1"
+                        ssh -i ${PEM_PATH} -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_IP} '
+                          sudo rm -rf ${TOMCAT_WEBAPPS}/springapp1.war ${TOMCAT_WEBAPPS}/springapp1
+                          sudo rm -rf ${TOMCAT_WEBAPPS}/frontapp1.war ${TOMCAT_WEBAPPS}/frontapp1
+                        '
                     """
                 }
             }
@@ -93,16 +95,6 @@ pipeline {
                         curl -s -u ${TOMCAT_USER}:${TOMCAT_PASS} \\
                           --upload-file ${BACKEND_WAR} \\
                           "${TOMCAT_URL}/deploy?path=/springapp1"
-                    """
-                }
-            }
-        }
-
-        stage('Undeploy Old Frontend (/frontapp1)') {
-            steps {
-                script {
-                    sh """
-                        curl -s -u ${TOMCAT_USER}:${TOMCAT_PASS} "${TOMCAT_URL}/undeploy?path=/frontapp1"
                     """
                 }
             }
