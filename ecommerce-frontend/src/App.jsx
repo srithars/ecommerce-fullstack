@@ -4,7 +4,7 @@ import Login from './components/Login';
 import Signup from './components/Signup';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import HomePage from './components/HomePage';
-import AboutUs from './components/AboutUs';
+import AboutUs from './components/AboutUs';  // ✅ Keep this one
 import Computers from './components/Computers';
 import Mobiles from './components/Mobiles';
 import Laptops from './components/Laptops';
@@ -14,9 +14,6 @@ import ProductPage from './components/ProductPage'
 import Cart from './components/Cart';
 import Payment from './components/Payment';
 import Orders from './components/Orders';
-import AboutUs from "./components/aboutus";
-
-
 
 
 function App() {
