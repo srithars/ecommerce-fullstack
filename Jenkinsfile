@@ -7,8 +7,8 @@ pipeline {
     }
 
     environment {
-        BACKEND_DIR = 'crud_backend/crud_backend-main'
-        FRONTEND_DIR = 'crud_frontend/crud_frontend-main'
+        BACKEND_DIR = 'ecommerce-backend'
+        FRONTEND_DIR = 'ecommerce-frontend'
 
         TOMCAT_URL = 'http://localhost:9090/manager/text'
         TOMCAT_USER = 'admin'
@@ -21,7 +21,7 @@ pipeline {
     stages {
         stage('Clone Repository') {
             steps {
-                git url: 'https://github.com/srithars/fullstackapp.git', branch: 'master'
+                git url: 'https://github.com/srithars/ecommerce-fullstack.git', branch: 'master'
             }
         }
 
