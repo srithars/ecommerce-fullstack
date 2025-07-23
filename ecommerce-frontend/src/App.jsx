@@ -14,6 +14,8 @@ import ProductPage from './components/ProductPage'
 import Cart from './components/Cart';
 import Payment from './components/Payment';
 import Orders from './components/Orders';
+import AboutUs from "./components/aboutus";
+
 
 
 
