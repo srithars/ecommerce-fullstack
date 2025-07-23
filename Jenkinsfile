@@ -16,6 +16,10 @@ pipeline {
 
         BACKEND_WAR = 'springapp1.war'
         FRONTEND_WAR = 'frontapp1.war'
+
+        EC2_HOST = 'ec2-user@54.172.97.72'
+        SSH_KEY = '/path/to/fullstack-key.pem'   // 🔁 Change this
+        TOMCAT_WEBAPPS_DIR = '/opt/tomcat/webapps'
     }
 
     stages {
@@ -55,6 +59,19 @@ pipeline {
                 dir("${env.BACKEND_DIR}") {
                     sh 'mvn clean package'
                     sh "cp target/*.war ../../${BACKEND_WAR}"
+                }
+            }
+        }
+
+        stage('Clean Tomcat Webapps') {
+            steps {
+                script {
+                    sh """
+                        ssh -o StrictHostKeyChecking=no -i ${SSH_KEY} ${EC2_HOST} '
+                          sudo rm -rf ${TOMCAT_WEBAPPS_DIR}/springapp1.war ${TOMCAT_WEBAPPS_DIR}/springapp1
+                          sudo rm -rf ${TOMCAT_WEBAPPS_DIR}/frontapp1.war ${TOMCAT_WEBAPPS_DIR}/frontapp1
+                        '
+                    """
                 }
             }
         }
