@@ -59,13 +59,33 @@ pipeline {
             }
         }
 
+        stage('Undeploy Old Backend (/springapp1)') {
+            steps {
+                script {
+                    sh """
+                        curl -s -u ${TOMCAT_USER}:${TOMCAT_PASS} "${TOMCAT_URL}/undeploy?path=/springapp1"
+                    """
+                }
+            }
+        }
+
         stage('Deploy Backend to Tomcat (/springapp1)') {
             steps {
                 script {
                     sh """
-                        curl -u ${TOMCAT_USER}:${TOMCAT_PASS} \\
+                        curl -s -u ${TOMCAT_USER}:${TOMCAT_PASS} \\
                           --upload-file ${BACKEND_WAR} \\
-                          "${TOMCAT_URL}/deploy?path=/springapp1&update=true"
+                          "${TOMCAT_URL}/deploy?path=/springapp1"
+                    """
+                }
+            }
+        }
+
+        stage('Undeploy Old Frontend (/frontapp1)') {
+            steps {
+                script {
+                    sh """
+                        curl -s -u ${TOMCAT_USER}:${TOMCAT_PASS} "${TOMCAT_URL}/undeploy?path=/frontapp1"
                     """
                 }
             }
@@ -75,9 +95,9 @@ pipeline {
             steps {
                 script {
                     sh """
-                        curl -u ${TOMCAT_USER}:${TOMCAT_PASS} \\
+                        curl -s -u ${TOMCAT_USER}:${TOMCAT_PASS} \\
                           --upload-file ${FRONTEND_WAR} \\
-                          "${TOMCAT_URL}/deploy?path=/frontapp1&update=true"
+                          "${TOMCAT_URL}/deploy?path=/frontapp1"
                     """
                 }
             }
