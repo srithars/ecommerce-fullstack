@@ -7,14 +7,15 @@ pipeline {
     }
 
     environment {
-        BACKEND_DIR = 'crud_backend/crud_backend-main'
-        FRONTEND_DIR = 'crud_frontend/crud_frontend-main'
-        EC2_HOST = '54.172.97.72'
-        TOMCAT_USER = 'admin'
-        TOMCAT_PASS = 'admin'
-        TOMCAT_PORT = '9090'
-        BACKEND_WAR = 'springapp2.war'
-        FRONTEND_WAR = 'frontapp2.war'
+        BACKEND_DIR = 'ecommerce-backend'
+        FRONTEND_DIR = 'ecommerce-frontend'
+
+        TOMCAT_USER = 'ec2-user'
+        TOMCAT_HOST = '54.172.97.72'
+        TOMCAT_KEY = '/home/jenkins/fullstack-key.pem'
+
+        BACKEND_WAR = 'target/springapp2.war'
+        FRONTEND_WAR = 'dist/frontapp2.war'
     }
 
     stages {
@@ -22,7 +23,6 @@ pipeline {
             steps {
                 dir("${BACKEND_DIR}") {
                     sh 'mvn clean package'
-                    sh "cp target/*.war ../../${BACKEND_WAR}"
                 }
             }
         }
@@ -30,53 +30,55 @@ pipeline {
         stage('Build Frontend') {
             steps {
                 dir("${FRONTEND_DIR}") {
-                    sh 'mvn clean package'
-                    sh "cp target/*.war ../../${FRONTEND_WAR}"
+                    sh '''
+                        npm install
+                        npm run build
+                    '''
                 }
             }
         }
 
         stage('Undeploy Old Apps from Tomcat') {
             steps {
-                script {
-                    echo "🧹 Undeploying old applications from Tomcat..."
-                    sh "curl -v -u ${TOMCAT_USER}:${TOMCAT_PASS} http://${EC2_HOST}:${TOMCAT_PORT}/manager/text/undeploy?path=/springapp2 || true"
-                    sh "curl -v -u ${TOMCAT_USER}:${TOMCAT_PASS} http://${EC2_HOST}:${TOMCAT_PORT}/manager/text/undeploy?path=/frontapp2 || true"
-                }
+                sh """
+                ssh -i ${TOMCAT_KEY} ${TOMCAT_USER}@${TOMCAT_HOST} 'rm -rf /opt/tomcat/webapps/springapp2*'
+                ssh -i ${TOMCAT_KEY} ${TOMCAT_USER}@${TOMCAT_HOST} 'rm -rf /opt/tomcat/webapps/frontapp2*'
+                """
             }
         }
 
         stage('Verify WAR Content') {
             steps {
-                echo "📦 Backend WAR contents:"
-                sh "jar -tf ${BACKEND_WAR} | head -n 10 || true"
-
-                echo "📦 Frontend WAR contents:"
-                sh "jar -tf ${FRONTEND_WAR} | head -n 10 || true"
+                sh "ls -l ${BACKEND_DIR}/${BACKEND_WAR}"
+                sh "ls -l ${FRONTEND_DIR}/${FRONTEND_WAR}"
             }
         }
 
         stage('Deploy Backend to Tomcat (/springapp2)') {
             steps {
-                echo "🚀 Deploying backend WAR to EC2 Tomcat..."
-                sh "curl -v -u ${TOMCAT_USER}:${TOMCAT_PASS} --upload-file ${BACKEND_WAR} http://${EC2_HOST}:${TOMCAT_PORT}/manager/text/deploy?path=/springapp2&update=true"
+                sh """
+                scp -i ${TOMCAT_KEY} ${BACKEND_DIR}/${BACKEND_WAR} ${TOMCAT_USER}@${TOMCAT_HOST}:/opt/tomcat/webapps/springapp2.war
+                """
             }
         }
 
         stage('Deploy Frontend to Tomcat (/frontapp2)') {
             steps {
-                echo "🚀 Deploying frontend WAR to EC2 Tomcat..."
-                sh "curl -v -u ${TOMCAT_USER}:${TOMCAT_PASS} --upload-file ${FRONTEND_WAR} http://${EC2_HOST}:${TOMCAT_PORT}/manager/text/deploy?path=/frontapp2&update=true"
+                sh """
+                cd ${FRONTEND_DIR}
+                zip -r frontapp2.war dist
+                scp -i ${TOMCAT_KEY} frontapp2.war ${TOMCAT_USER}@${TOMCAT_HOST}:/opt/tomcat/webapps/frontapp2.war
+                """
             }
         }
     }
 
     post {
-        success {
-            echo '✅ Deployment successful!'
-        }
         failure {
             echo '❌ Build or deployment failed. Check logs above.'
+        }
+        success {
+            echo '✅ Build and deployment successful!'
         }
     }
 }
