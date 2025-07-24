@@ -10,7 +10,7 @@ pipeline {
         BACKEND_DIR = 'ecommerce-backend'
         FRONTEND_DIR = 'ecommerce-frontend'
 
-        TOMCAT_URL = 'http://54.172.97.72:9090/manager/text'
+        TOMCAT_URL = 'http://54.172.97.72:9090/manager/text'  // Remote EC2 Tomcat
         TOMCAT_USER = 'admin'
         TOMCAT_PASS = 'admin'
 
@@ -62,19 +62,31 @@ pipeline {
         stage('Undeploy Old Apps from Tomcat') {
             steps {
                 script {
+                    echo "🧹 Undeploying old applications from Tomcat..."
                     sh """
-                        curl -s -u ${TOMCAT_USER}:${TOMCAT_PASS} "${TOMCAT_URL}/undeploy?path=/springapp1"
-                        curl -s -u ${TOMCAT_USER}:${TOMCAT_PASS} "${TOMCAT_URL}/undeploy?path=/frontapp1"
+                        curl -v -u ${TOMCAT_USER}:${TOMCAT_PASS} "${TOMCAT_URL}/undeploy?path=/springapp1"
+                        curl -v -u ${TOMCAT_USER}:${TOMCAT_PASS} "${TOMCAT_URL}/undeploy?path=/frontapp1"
                     """
                 }
+            }
+        }
+
+        stage('Verify WAR Content') {
+            steps {
+                echo "📦 Backend WAR contents:"
+                sh "jar -tf ${BACKEND_WAR} | head -n 10"
+
+                echo "📦 Frontend WAR contents:"
+                sh "jar -tf ${FRONTEND_WAR} | head -n 10"
             }
         }
 
         stage('Deploy Backend to Tomcat (/springapp1)') {
             steps {
                 script {
+                    echo "🚀 Deploying backend WAR to EC2 Tomcat..."
                     sh """
-                        curl -s -u ${TOMCAT_USER}:${TOMCAT_PASS} \\
+                        curl -v -u ${TOMCAT_USER}:${TOMCAT_PASS} \\
                           --upload-file ${BACKEND_WAR} \\
                           "${TOMCAT_URL}/deploy?path=/springapp1&update=true"
                     """
@@ -85,8 +97,9 @@ pipeline {
         stage('Deploy Frontend to Tomcat (/frontapp1)') {
             steps {
                 script {
+                    echo "🚀 Deploying frontend WAR to EC2 Tomcat..."
                     sh """
-                        curl -s -u ${TOMCAT_USER}:${TOMCAT_PASS} \\
+                        curl -v -u ${TOMCAT_USER}:${TOMCAT_PASS} \\
                           --upload-file ${FRONTEND_WAR} \\
                           "${TOMCAT_URL}/deploy?path=/frontapp1&update=true"
                     """
@@ -101,7 +114,7 @@ pipeline {
             echo "✅ Frontend deployed: http://54.172.97.72:9090/frontapp1"
         }
         failure {
-            echo "❌ Build or deployment failed"
+            echo "❌ Build or deployment failed. Check logs above."
         }
     }
 }
