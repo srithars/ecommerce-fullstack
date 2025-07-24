@@ -4,7 +4,7 @@ pipeline {
     tools {
         jdk 'JDK_HOME'
         maven 'MAVEN_HOME'
-        nodejs 'NODE_HOME'  // NodeJS 18.20.8 configured in Jenkins
+        nodejs 'NODE_HOME'  // Node.js 18.20.8 configured in Jenkins
     }
 
     environment {
@@ -48,40 +48,40 @@ pipeline {
         stage('Undeploy Old Apps from Tomcat') {
             steps {
                 sh """
-                ssh -i ${SSH_KEY} ${REMOTE_USER}@${REMOTE_HOST} 'rm -rf ${REMOTE_PATH}/springapp2* ${REMOTE_PATH}/frontapp2*'
+                    ssh -o StrictHostKeyChecking=no -i ${SSH_KEY} ${REMOTE_USER}@${REMOTE_HOST} 'rm -rf ${REMOTE_PATH}/springapp2* ${REMOTE_PATH}/frontapp2*'
                 """
             }
         }
 
-        stage('Verify WAR Content') {
+        stage('Verify WAR Files') {
             steps {
                 sh 'ls -lh *.war'
             }
         }
 
-        stage('Deploy Backend to Tomcat (/springapp2)') {
+        stage('Deploy Backend (/springapp2)') {
             steps {
                 sh """
-                scp -i ${SSH_KEY} ${BACKEND_WAR} ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PATH}/
+                    scp -o StrictHostKeyChecking=no -i ${SSH_KEY} ${BACKEND_WAR} ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PATH}/
                 """
             }
         }
 
-        stage('Deploy Frontend to Tomcat (/frontapp2)') {
+        stage('Deploy Frontend (/frontapp2)') {
             steps {
                 sh """
-                scp -i ${SSH_KEY} ${FRONTEND_WAR} ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PATH}/
+                    scp -o StrictHostKeyChecking=no -i ${SSH_KEY} ${FRONTEND_WAR} ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PATH}/
                 """
             }
         }
     }
 
     post {
-        failure {
-            echo '❌ Build or deployment failed. Check logs above.'
-        }
         success {
-            echo '✅ Application deployed successfully to Tomcat!'
+            echo '✅ Deployment to Tomcat successful!'
+        }
+        failure {
+            echo '❌ Deployment failed. Please check logs.'
         }
     }
 }
