@@ -10,17 +10,12 @@ pipeline {
         BACKEND_DIR = 'ecommerce-backend'
         FRONTEND_DIR = 'ecommerce-frontend'
 
-        TOMCAT_URL = 'http://localhost:9090/manager/text'
+        TOMCAT_URL = 'http://54.172.97.72:9090/manager/text'
         TOMCAT_USER = 'admin'
         TOMCAT_PASS = 'admin'
 
         BACKEND_WAR = 'springapp1.war'
         FRONTEND_WAR = 'frontapp1.war'
-
-        EC2_USER = 'ec2-user'
-        EC2_IP = '54.172.97.72'
-        PEM_PATH = '/home/jenkins/fullstack-key.pem'  // 🔁 Replace with correct path on Jenkins server
-        TOMCAT_WEBAPPS = '/opt/tomcat/webapps'        // 🔁 Update if your Tomcat path is different
     }
 
     stages {
@@ -75,26 +70,13 @@ pipeline {
             }
         }
 
-        stage('Clean Tomcat Webapps on EC2') {
-            steps {
-                script {
-                    sh """
-                        ssh -i ${PEM_PATH} -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_IP} '
-                          sudo rm -rf ${TOMCAT_WEBAPPS}/springapp1.war ${TOMCAT_WEBAPPS}/springapp1
-                          sudo rm -rf ${TOMCAT_WEBAPPS}/frontapp1.war ${TOMCAT_WEBAPPS}/frontapp1
-                        '
-                    """
-                }
-            }
-        }
-
         stage('Deploy Backend to Tomcat (/springapp1)') {
             steps {
                 script {
                     sh """
                         curl -s -u ${TOMCAT_USER}:${TOMCAT_PASS} \\
                           --upload-file ${BACKEND_WAR} \\
-                          "${TOMCAT_URL}/deploy?path=/springapp1"
+                          "${TOMCAT_URL}/deploy?path=/springapp1&update=true"
                     """
                 }
             }
@@ -106,7 +88,7 @@ pipeline {
                     sh """
                         curl -s -u ${TOMCAT_USER}:${TOMCAT_PASS} \\
                           --upload-file ${FRONTEND_WAR} \\
-                          "${TOMCAT_URL}/deploy?path=/frontapp1"
+                          "${TOMCAT_URL}/deploy?path=/frontapp1&update=true"
                     """
                 }
             }
