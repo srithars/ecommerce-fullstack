@@ -4,84 +4,74 @@ pipeline {
     tools {
         jdk 'JDK_HOME'
         maven 'MAVEN_HOME'
-        nodejs 'NODE_HOME'  // Node.js 18.20.8 configured in Jenkins
+        nodejs 'NODE_HOME'   // Make sure this matches the name you configured in Jenkins
     }
 
     environment {
         BACKEND_DIR = 'ecommerce-backend'
         FRONTEND_DIR = 'ecommerce-frontend'
-        BACKEND_WAR = 'springapp2.war'
         FRONTEND_WAR = 'frontapp2.war'
-        REMOTE_USER = 'ec2-user'
-        REMOTE_HOST = '54.172.97.72'
-        REMOTE_PATH = '/opt/tomcat/webapps'
-        SSH_KEY = '/home/jenkins/fullstack-key.pem'
+        BACKEND_WAR = 'springapp2.war'
+        REMOTE_HOST = 'ec2-user@54.172.97.72'
+        REMOTE_KEY = '/home/jenkins/fullstack-key.pem'
+        REMOTE_TOMCAT = '/opt/tomcat/webapps'
     }
 
     stages {
-        stage('Checkout Code') {
-            steps {
-                git 'https://github.com/srithars/ecommerce-fullstack.git'
-            }
-        }
 
-        stage('Build Backend') {
+        stage('Build Backend (Spring Boot)') {
             steps {
                 dir("${BACKEND_DIR}") {
-                    sh 'mvn clean install'
+                    sh 'mvn clean package -DskipTests'
                     sh "cp target/*.war ../${BACKEND_WAR}"
                 }
             }
         }
 
-        stage('Build Frontend') {
+        stage('Build Frontend (Vite)') {
             steps {
                 dir("${FRONTEND_DIR}") {
                     sh 'npm install'
                     sh 'npm run build'
-                    sh 'mkdir -p dist/WEB-INF && echo "<web-app/>" > dist/WEB-INF/web.xml'
-                    sh "jar -cvf ../../${FRONTEND_WAR} -C dist ."
                 }
             }
         }
 
-        stage('Undeploy Old Apps from Tomcat') {
+        stage('Package Frontend as WAR') {
             steps {
-                sh """
-                    ssh -o StrictHostKeyChecking=no -i ${SSH_KEY} ${REMOTE_USER}@${REMOTE_HOST} 'rm -rf ${REMOTE_PATH}/springapp2* ${REMOTE_PATH}/frontapp2*'
-                """
+                dir("${FRONTEND_DIR}") {
+                    sh '''
+                        mkdir -p frontapp2_war/WEB-INF
+                        cp -r dist/* frontapp2_war/
+                        jar -cvf ../${FRONTEND_WAR} -C frontapp2_war .
+                    '''
+                }
             }
         }
 
-        stage('Verify WAR Files') {
+        stage('Verify WAR Content') {
             steps {
-                sh 'ls -lh *.war'
+                sh 'ls -lh ${BACKEND_WAR}'
+                sh 'ls -lh ${FRONTEND_WAR}'
             }
         }
 
-        stage('Deploy Backend (/springapp2)') {
+        stage('Deploy WARs to EC2 Tomcat') {
             steps {
-                sh """
-                    scp -o StrictHostKeyChecking=no -i ${SSH_KEY} ${BACKEND_WAR} ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PATH}/
-                """
-            }
-        }
-
-        stage('Deploy Frontend (/frontapp2)') {
-            steps {
-                sh """
-                    scp -o StrictHostKeyChecking=no -i ${SSH_KEY} ${FRONTEND_WAR} ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PATH}/
-                """
+                sh '''
+                    scp -i ${REMOTE_KEY} ${BACKEND_WAR} ${REMOTE_HOST}:${REMOTE_TOMCAT}/springapp2.war
+                    scp -i ${REMOTE_KEY} ${FRONTEND_WAR} ${REMOTE_HOST}:${REMOTE_TOMCAT}/frontapp2.war
+                '''
             }
         }
     }
 
     post {
         success {
-            echo '✅ Deployment to Tomcat successful!'
+            echo '✅ Deployment successful!'
         }
         failure {
-            echo '❌ Deployment failed. Please check logs.'
+            echo '❌ Build or deployment failed. Check logs above.'
         }
     }
 }
