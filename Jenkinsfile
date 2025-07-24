@@ -14,8 +14,8 @@ pipeline {
         TOMCAT_USER = 'admin'
         TOMCAT_PASS = 'admin'
 
-        BACKEND_WAR = 'springapp1.war'
-        FRONTEND_WAR = 'frontapp1.war'
+        BACKEND_WAR = 'springapp2.war'
+        FRONTEND_WAR = 'frontapp2.war'
     }
 
     stages {
@@ -42,9 +42,9 @@ pipeline {
             steps {
                 dir("${env.FRONTEND_DIR}") {
                     sh """
-                        mkdir -p frontapp1_war/WEB-INF
-                        cp -r dist/* frontapp1_war/
-                        jar -cvf ../../${FRONTEND_WAR} -C frontapp1_war .
+                        mkdir -p frontapp2_war/WEB-INF
+                        cp -r dist/* frontapp2_war/
+                        jar -cvf ../../${FRONTEND_WAR} -C frontapp2_war .
                     """
                 }
             }
@@ -64,8 +64,8 @@ pipeline {
                 script {
                     echo "🧹 Undeploying old applications from Tomcat..."
                     sh """
-                        curl -v -u ${TOMCAT_USER}:${TOMCAT_PASS} "${TOMCAT_URL}/undeploy?path=/springapp1"
-                        curl -v -u ${TOMCAT_USER}:${TOMCAT_PASS} "${TOMCAT_URL}/undeploy?path=/frontapp1"
+                        curl -v -u ${TOMCAT_USER}:${TOMCAT_PASS} "${TOMCAT_URL}/undeploy?path=/springapp2"
+                        curl -v -u ${TOMCAT_USER}:${TOMCAT_PASS} "${TOMCAT_URL}/undeploy?path=/frontapp2"
                     """
                 }
             }
@@ -81,27 +81,27 @@ pipeline {
             }
         }
 
-        stage('Deploy Backend to Tomcat (/springapp1)') {
+        stage('Deploy Backend to Tomcat (/springapp2)') {
             steps {
                 script {
                     echo "🚀 Deploying backend WAR to EC2 Tomcat..."
                     sh """
                         curl -v -u ${TOMCAT_USER}:${TOMCAT_PASS} \\
                           --upload-file ${BACKEND_WAR} \\
-                          "${TOMCAT_URL}/deploy?path=/springapp1&update=true"
+                          "${TOMCAT_URL}/deploy?path=/springapp2&update=true"
                     """
                 }
             }
         }
 
-        stage('Deploy Frontend to Tomcat (/frontapp1)') {
+        stage('Deploy Frontend to Tomcat (/frontapp2)') {
             steps {
                 script {
                     echo "🚀 Deploying frontend WAR to EC2 Tomcat..."
                     sh """
                         curl -v -u ${TOMCAT_USER}:${TOMCAT_PASS} \\
                           --upload-file ${FRONTEND_WAR} \\
-                          "${TOMCAT_URL}/deploy?path=/frontapp1&update=true"
+                          "${TOMCAT_URL}/deploy?path=/frontapp2&update=true"
                     """
                 }
             }
@@ -110,8 +110,8 @@ pipeline {
 
     post {
         success {
-            echo "✅ Backend deployed: http://54.172.97.72:9090/springapp1"
-            echo "✅ Frontend deployed: http://54.172.97.72:9090/frontapp1"
+            echo "✅ Backend deployed: http://54.172.97.72:9090/springapp2"
+            echo "✅ Frontend deployed: http://54.172.97.72:9090/frontapp2"
         }
         failure {
             echo "❌ Build or deployment failed. Check logs above."
