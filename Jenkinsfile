@@ -4,36 +4,54 @@ pipeline {
     tools {
         jdk 'JDK_HOME'
         maven 'MAVEN_HOME'
+        nodejs 'NODE_18' // Make sure this matches your Jenkins global tools name
     }
 
     environment {
         BACKEND_DIR = 'ecommerce-backend'
         FRONTEND_DIR = 'ecommerce-frontend'
 
-        TOMCAT_USER = 'ec2-user'
-        TOMCAT_HOST = '54.172.97.72'
-        TOMCAT_KEY = '/home/jenkins/fullstack-key.pem'
+        TOMCAT_URL = 'http://localhost:9090/manager/text'
+        TOMCAT_USER = 'admin'
+        TOMCAT_PASS = 'admin'
 
-        BACKEND_WAR = 'target/springapp2.war'
-        FRONTEND_WAR = 'dist/frontapp2.war'
+        BACKEND_WAR = 'springapp2.war'
+        FRONTEND_WAR = 'frontapp2.war'
     }
 
     stages {
-        stage('Build Backend') {
+        stage('Clone Repository') {
             steps {
-                dir("${BACKEND_DIR}") {
+                git url: 'https://github.com/srithars/ecommerce-fullstack.git', branch: 'master'
+            }
+        }
+
+        stage('Build Backend (Spring Boot WAR)') {
+            steps {
+                dir("${env.BACKEND_DIR}") {
                     sh 'mvn clean package'
+                    sh "cp target/*.war ../${BACKEND_WAR}"
                 }
             }
         }
 
-        stage('Build Frontend') {
+        stage('Build Frontend (Vite)') {
             steps {
-                dir("${FRONTEND_DIR}") {
-                    sh '''
-                        npm install
-                        npm run build
-                    '''
+                dir("${env.FRONTEND_DIR}") {
+                    sh 'npm install'
+                    sh 'npm run build'
+                }
+            }
+        }
+
+        stage('Package Frontend as WAR') {
+            steps {
+                dir("${env.FRONTEND_DIR}") {
+                    sh """
+                        mkdir -p frontapp2_war/WEB-INF
+                        cp -r dist/* frontapp2_war/
+                        jar -cvf ../../${FRONTEND_WAR} -C frontapp2_war .
+                    """
                 }
             }
         }
@@ -41,23 +59,25 @@ pipeline {
         stage('Undeploy Old Apps from Tomcat') {
             steps {
                 sh """
-                ssh -i ${TOMCAT_KEY} ${TOMCAT_USER}@${TOMCAT_HOST} 'rm -rf /opt/tomcat/webapps/springapp2*'
-                ssh -i ${TOMCAT_KEY} ${TOMCAT_USER}@${TOMCAT_HOST} 'rm -rf /opt/tomcat/webapps/frontapp2*'
+                    curl -u ${TOMCAT_USER}:${TOMCAT_PASS} "${TOMCAT_URL}/undeploy?path=/springapp2" || true
+                    curl -u ${TOMCAT_USER}:${TOMCAT_PASS} "${TOMCAT_URL}/undeploy?path=/frontapp2" || true
                 """
             }
         }
 
         stage('Verify WAR Content') {
             steps {
-                sh "ls -l ${BACKEND_DIR}/${BACKEND_WAR}"
-                sh "ls -l ${FRONTEND_DIR}/${FRONTEND_WAR}"
+                sh "ls -lh ${BACKEND_WAR}"
+                sh "ls -lh ${FRONTEND_WAR}"
             }
         }
 
         stage('Deploy Backend to Tomcat (/springapp2)') {
             steps {
                 sh """
-                scp -i ${TOMCAT_KEY} ${BACKEND_DIR}/${BACKEND_WAR} ${TOMCAT_USER}@${TOMCAT_HOST}:/opt/tomcat/webapps/springapp2.war
+                    curl -u ${TOMCAT_USER}:${TOMCAT_PASS} \\
+                         --upload-file ${BACKEND_WAR} \\
+                         "${TOMCAT_URL}/deploy?path=/springapp2&update=true"
                 """
             }
         }
@@ -65,20 +85,21 @@ pipeline {
         stage('Deploy Frontend to Tomcat (/frontapp2)') {
             steps {
                 sh """
-                cd ${FRONTEND_DIR}
-                zip -r frontapp2.war dist
-                scp -i ${TOMCAT_KEY} frontapp2.war ${TOMCAT_USER}@${TOMCAT_HOST}:/opt/tomcat/webapps/frontapp2.war
+                    curl -u ${TOMCAT_USER}:${TOMCAT_PASS} \\
+                         --upload-file ${FRONTEND_WAR} \\
+                         "${TOMCAT_URL}/deploy?path=/frontapp2&update=true"
                 """
             }
         }
     }
 
     post {
-        failure {
-            echo '❌ Build or deployment failed. Check logs above.'
-        }
         success {
-            echo '✅ Build and deployment successful!'
+            echo "✅ Backend deployed: http://54.172.97.72:9090/springapp2"
+            echo "✅ Frontend deployed: http://54.172.97.72:9090/frontapp2"
+        }
+        failure {
+            echo "❌ Build or deployment failed. Check logs above."
         }
     }
 }
