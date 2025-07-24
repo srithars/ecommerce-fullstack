@@ -4,7 +4,7 @@ pipeline {
     tools {
         jdk 'JDK_HOME'
         maven 'MAVEN_HOME'
-        nodejs 'NODE_18' // Make sure this matches your Jenkins global tools name
+        nodejs 'NODE_HOME' // Make sure this matches your Jenkins global tools name
     }
 
     environment {
