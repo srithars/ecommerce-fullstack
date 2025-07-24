@@ -1,7 +1,7 @@
 import axios from "axios";
 
 // Use the correct base URL for cart operations
-const CART_API_URL = "http://localhost:9090/back1/api/cart";
+const CART_API_URL = "http://54.172.97.72:9090/springapp2/api/cart";
 
 export const addToCart = async (userId, productId) => {
   return await axios.post(`${CART_API_URL}/add`, {
